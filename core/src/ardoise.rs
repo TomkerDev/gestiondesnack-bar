@@ -5,7 +5,7 @@
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Client {
     pub id: String,
-    pub plafond: i64, // ARD-1 fixe par gerant/proprio
+    pub plafond: i64,  // ARD-1 fixe par gerant/proprio
     pub solde_du: i64, // ARD-1
 }
 
@@ -19,12 +19,17 @@ pub enum Decision {
 
 /// ARD-2 : solde + montant <= plafond => accepte ; sinon refuse (deblocable si client identifie).
 pub fn decider_vente(client: Option<&Client>, montant: i64) -> Decision {
-    if montant <= 0 { return Decision::Refuse; }
+    if montant <= 0 {
+        return Decision::Refuse;
+    }
     match client {
         None => Decision::Refuse, // ARD-2 : client identifie exige
         Some(c) => {
-            if c.solde_du + montant <= c.plafond { Decision::Accepte }
-            else { Decision::RefuseDeblocable }
+            if c.solde_du + montant <= c.plafond {
+                Decision::Accepte
+            } else {
+                Decision::RefuseDeblocable
+            }
         }
     }
 }
@@ -32,8 +37,12 @@ pub fn decider_vente(client: Option<&Client>, montant: i64) -> Decision {
 /// ARD-3 : deblocage ponctuel R1, ne modifie PAS le plafond.
 /// Retourne le nouveau solde (vente comptabilisee) ; l'appelant trace (autorisations + audit M1).
 pub fn appliquer_deblocage(solde_du: i64, montant: i64, r1: bool) -> Result<i64, Erreur> {
-    if !r1 { return Err(Erreur::DeblocageSansAutorisation); }
-    if montant <= 0 { return Err(Erreur::MontantInvalide); }
+    if !r1 {
+        return Err(Erreur::DeblocageSansAutorisation);
+    }
+    if montant <= 0 {
+        return Err(Erreur::MontantInvalide);
+    }
     Ok(solde_du + montant)
 }
 
@@ -46,8 +55,13 @@ pub enum Erreur {
 }
 
 /// ARD-6 : offline = decision sur instantane, jamais de deblocage.
-pub fn decider_vente_offline(instantane: Option<&Client>, montant: i64) -> Result<Decision, Erreur> {
-    if montant <= 0 { return Err(Erreur::MontantInvalide); }
+pub fn decider_vente_offline(
+    instantane: Option<&Client>,
+    montant: i64,
+) -> Result<Decision, Erreur> {
+    if montant <= 0 {
+        return Err(Erreur::MontantInvalide);
+    }
     match instantane {
         None => Ok(Decision::Refuse),
         Some(c) => Ok(if c.solde_du + montant <= c.plafond {
@@ -66,9 +80,17 @@ pub fn tenter_deblocage_offline() -> Result<(), Erreur> {
 /// Retourne (nouveau_solde, especes_attendues_delta, ca_delta).
 /// Espece => especes attendues +montant ; mobile => 0 (rapproche M5).
 /// CA inchange (la vente comptait deja).
-pub fn appliquer_remboursement(solde_du: i64, montant: i64, mode: &str) -> Result<(i64, i64), Erreur> {
-    if montant <= 0 { return Err(Erreur::RemboursementInvalide); }
-    if solde_du <= 0 { return Err(Erreur::RemboursementInvalide); }
+pub fn appliquer_remboursement(
+    solde_du: i64,
+    montant: i64,
+    mode: &str,
+) -> Result<(i64, i64), Erreur> {
+    if montant <= 0 {
+        return Err(Erreur::RemboursementInvalide);
+    }
+    if solde_du <= 0 {
+        return Err(Erreur::RemboursementInvalide);
+    }
     let nouveau = (solde_du - montant).max(0);
     let delta_especes = if mode == "especes" { montant } else { 0 }; // ARD-4 + CAI-2
     Ok((nouveau, delta_especes))
@@ -77,8 +99,11 @@ pub fn appliquer_remboursement(solde_du: i64, montant: i64, mode: &str) -> Resul
 /// ARD-6 resynchro : recalcule et signale les depassements.
 /// Entrees : (client_id, solde_central_avant, ventes_offline, remboursements_offline).
 /// Sortie : liste d'alertes (client_id, nouveau_solde, plafond).
+/// Ligne d'historique client pour la resynchro ARD-6 :
+/// (id, solde_central_avant, plafond ignore — relu via `plafonds`, ventes, remboursements).
+pub type LigneResynchro = (String, i64, i64, Vec<i64>, Vec<i64>);
 pub fn controler_resynchro(
-    clients: &[(String, i64, i64, Vec<i64>, Vec<i64>)],
+    clients: &[LigneResynchro],
     plafonds: &std::collections::HashMap<String, i64>,
 ) -> Vec<(String, i64, i64)> {
     let mut alertes = Vec::new();
