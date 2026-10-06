@@ -26,9 +26,12 @@ gestiondesnack-bar/
 ├── specification-snack-bar.md   # Source de vérité (v1.2)
 ├── prompts-snack-bar.md         # Prompts de développement (M1–M6, interfaces)
 ├── core/                        # Cœur métier
-│   ├── src/                     # .rs = référence (Tauri 2 / Rust)
+│   ├── src/                     # .rs = référence (noyau métier, compilé par cargo)
 │   │   ├── lib.rs  commande.rs  caisse.rs  ardoise.rs  securite.rs  stock.rs
-│   └── tests_m2 … tests_m6/     # Miroirs Python EXECUTÉS (Rust absent ici)
+│   ├── tests/                   # Suite cargo test native (22 tests M2–M6)
+│   │   ├── m2_commande.rs  m3_m4.rs  m5_m6.rs
+│   ├── rust-toolchain.toml      # Pin stable + clippy + rustfmt
+│   └── tests_m2 … tests_m6/     # Miroirs Python (secours sans Rust)
 ├── db/                          # SQLite (migrations, ERD, LIMITES, TRACE)
 │   └── test_scenario_m1.py      # Scénario bout en bout (CAI-2, stock)
 └── app/                         # Front SvelteKit (SPA, PWA installable)
@@ -52,9 +55,9 @@ gestiondesnack-bar/
 ## Prérequis
 
 - **Node.js ≥ 20** et npm
-- **Python ≥ 3.11** (miroirs et tests statiques, stdlib uniquement)
-- *Optionnel* : toolchain Rust (`cargo`) pour compiler le PC caisse — absent de
-  cet environnement, d'où les miroirs Python exécutés à la place des `.rs`
+- **Python ≥ 3.11** (serveur local + tests statiques, stdlib uniquement)
+- **Toolchain Rust stable** (natif GNU Windows : `rustc 1.99`) — `cargo build`,
+  `cargo test`, `cargo clippy`, `cargo fmt` dans `core/`
 
 ## Démarrage
 
@@ -77,7 +80,16 @@ npm test
 # └── python tests/test_integration.py       # branchement + scaffolding
 ```
 
-Côté cœur métier, les miroirs Python sont exécutés indépendamment :
+Côté cœur métier, la référence est la suite Rust native :
+
+```bash
+cd core
+cargo test              # 22 tests M2–M6 (spec v1.2)
+cargo clippy --all-targets -- -D warnings   # zéro warning
+cargo fmt --all --check                     # format verrouillé
+```
+
+Les miroirs Python restent en secours (environnement sans Rust) :
 
 ```bash
 python core/tests_m2/test_m2.py   # … jusqu'à test_m6
@@ -100,8 +112,9 @@ python db/test_scenario_m1.py     # scénario complet (CAI-2 = 13 500)
 
 ## Limites connues
 
-1. Aucun serveur axum réel dans ce dépôt : le front tourne avec des données
-   vides tant que le back Rust n'est pas lancé.
+1. Serveur local = **miroir Python** (`serveur/serveur.py`, stdlib) qui reproduit
+   le contrat HTTP du futur back axum : le front tourne avec des données
+   réelles en local, mais le back Rust reste à écrire.
 2. Pas d'écran de connexion PIN branché (`session.ouvrirSession` existe et est
    testé, mais n'est pas encore appelé par une route).
 3. Les événements WebSocket cuisine ne sont pas ouverts (l'abonnement

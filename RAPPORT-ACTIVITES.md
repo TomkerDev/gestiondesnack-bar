@@ -9,9 +9,10 @@ cuisine pour un snack-bar, conforme à `specification-snack-bar.md` (v1.2).
 
 ## 1. Phase 1 — Cœur métier (M1 → M6) ✅
 
-Référence : modules `.rs` (Rust) dans `core/src/` ; exécution assurée par des
-**miroirs Python** (`core/tests_m*/`) car la toolchain Rust est absente de
-l'environnement de travail.
+Référence : modules `.rs` (Rust) dans `core/src/`, désormais **compilés et testés
+par la vraie toolchain** (`rustc 1.99` natif GNU Windows, via rustup).
+Les **miroirs Python** (`core/tests_m*/`) restent en secours pour les
+environnements sans Rust.
 
 | Jalon | Périmètre | Exigences | Tests |
 |---|---|---|---|
@@ -22,9 +23,53 @@ l'environnement de travail.
 | **M5** | Caisse : formule CAI-2, écarts, tolérances, forçage clôture | CAI-1/2/4/5/6, R5 | 14 |
 | **M6** | Sécurité : PIN, blocages progressifs, sessions, matrice §3, jeton R1 | SEC-1…3, R1, R3 | 18 |
 
-**Total : 102 tests + scénario de bout en bout — tous verts.**
+**Total : 102 tests miroirs + scénario de bout en bout — tous verts.**
+Suite Rust native ajoutée ensuite (phase 5) : `core/tests/` (22 tests),
+`cargo test` vert sous la vraie toolchain.
 
-## 2. Phase 2 — Interfaces (I1 → I8) ✅
+## 2. Phase 2 — Toolchain Rust sur le codebase ✅
+
+1. **Installation** : rustup (profil minimal, cible native
+   `x86_64-pc-windows-gnu`, Rust 1.99.0) + composants `clippy` et `rustfmt`.
+   Pas de dépendance Visual Studio (linker GNU embarqué).
+2. **Suite native `core/tests/`** — 22 tests d'intégration Rust qui font foi
+   (les miroirs Python rejouent les mêmes règles) :
+   - `m2_commande.rs` (8) : total net, motif de retrait, règlement exact/inexact,
+     ardoise exclusive, R4, conversion comptoir→table, remise R1 ;
+   - `m3_m4.rs` (7) : décision ardoise/plafond, déblocage R1 (jamais offline),
+     remboursement espèces/mobile, stock négatif autorisé + alerte,
+     double contrôle STK-4, inventaire, transitions cuisine ;
+   - `m5_m6.rs` (7) : formule CAI-2, clôture/tolérance/forçage, cycle journée,
+     rapprochement mobile, PIN/blocage progressif, matrice des droits,
+     jeton R1 (usage unique, 60 s, refus offline).
+3. **Qualité verrouillée** : `cargo fmt --check` ✅, `cargo clippy
+   --all-targets -- -D warnings` ✅ (1 warning corrigé via alias
+   `LigneResynchro`), `unsafe_code = "forbid"` dans `Cargo.toml`,
+   `core/rust-toolchain.toml` (stable + clippy + rustfmt), `Cargo.lock` suivi.
+4. **Commit** `bf4ca3a` — `cargo test` : **22/22 verts**.
+
+## 3. Phase 3 — Interfaces (I1 → I8) ✅
+
+1. **Installation** : rustup (profil minimal, cible native
+   `x86_64-pc-windows-gnu`, Rust 1.99.0) + composants `clippy` et `rustfmt`.
+   Pas de dépendance Visual Studio (linker GNU embarqué).
+2. **Suite native `core/tests/`** — 22 tests d'intégration Rust qui font foi
+   (les miroirs Python rejouent les mêmes règles) :
+   - `m2_commande.rs` (8) : total net, motif de retrait, règlement exact/inexact,
+     ardoise exclusive, R4, conversion comptoir→table, remise R1 ;
+   - `m3_m4.rs` (7) : décision ardoise/plafond, déblocage R1 (jamais offline),
+     remboursement espèces/mobile, stock négatif autorisé + alerte,
+     double contrôle STK-4, inventaire, transitions cuisine ;
+   - `m5_m6.rs` (7) : formule CAI-2, clôture/tolérance/forçage, cycle journée,
+     rapprochement mobile, PIN/blocage progressif, matrice des droits,
+     jeton R1 (usage unique, 60 s, refus offline).
+3. **Qualité verrouillée** : `cargo fmt --check` ✅, `cargo clippy
+   --all-targets -- -D warnings` ✅ (1 warning corrigé via alias
+   `LigneResynchro`), `unsafe_code = "forbid"` dans `Cargo.toml`,
+   `core/rust-toolchain.toml` (stable + clippy + rustfmt), `Cargo.lock` suivi.
+4. **Commit** `bf4ca3a` — `cargo test` : **22/22 verts**.
+
+## 5. Phase 5 — Qualité et livraison ✅
 
 Pattern répété pour chaque interface : module JS pur (`src/lib/*.js`) testé par
 `node --test` + route Svelte (`src/routes/**`) + test statique Python
@@ -49,7 +94,7 @@ acceptation de la liste de fonds vide (I7), découpage des grosses pages en
 blocs d'édition < 6 000 caractères.
 
 
-## 3. Phase 3 — Passe d'intégration ✅
+## 4. Phase 4 — Passe d'intégration ✅
 
 Jusque-là les pages étaient des coques sans données : aucun accès réseau, pas
 de layout, boutons principaux non câblés, app non buildable.
@@ -97,13 +142,16 @@ de layout, boutons principaux non câblés, app non buildable.
 | `9d47d03` | feat(app): interfaces I1–I8 (9 écrans) |
 | `54359b4` | feat(app): passe d'intégration (API offline, session, layout, build) |
 | `1964da3` | docs: README |
+| `9f0e345` | docs: rapport d'activités |
+| `bf4ca3a` | feat(core): toolchain Rust + 22 tests cargo natifs |
 
 ## 5. Bilan chiffré
 
 | Indicateur | Valeur |
 |---|---|
-| Tests totaux (cœur + front) | **371** (102 + scénario + 268) |
+| Tests totaux (Rust + cœur + front) | **393** (22 cargo + 102 miroirs + scénario + 268 front) |
 | Tests en échec | **0** |
+| Toolchain Rust | ✅ 1.99.0 GNU Windows (fmt + clippy `-D warnings` propres) |
 | Interfaces livrées | **8 / 8** (I1–I8) |
 | Jalons backend | **6 / 6** (M1–M6) |
 | Écrans Svelte | 9 (+ layout global) |
@@ -120,5 +168,5 @@ de layout, boutons principaux non câblés, app non buildable.
    aucun écran d'identification ne l'appelle encore.
 3. **WebSocket cuisine non ouvert** : l'abonnement `api.abonner()` est prêt,
    aucune connexion n'est établie.
-4. Rust/cargo absents de l'environnement : les `.rs` font autorité mais ne
-   sont pas compilés ici — les miroirs Python sont exécutés à leur place.
+4. ~~Rust/cargo absents de l'environnement~~ → **résolu (phase 2)** : toolchain
+   installée, `cargo test` 22/22, les miroirs Python restent en secours.
