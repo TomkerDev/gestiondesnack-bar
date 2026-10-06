@@ -1,0 +1,19 @@
+# Dépendances et artefacts de build (app SvelteKit)
+node_modules/
+build/
+.svelte-kit/
+*.local
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Rust
+core/target/
+**/*.rs.bk
+
+# Édition / OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
