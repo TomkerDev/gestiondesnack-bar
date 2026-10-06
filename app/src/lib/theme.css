@@ -1,0 +1,20 @@
+/* I1 · Thème : sombre + clair, 48 px tactile min, contrastes AA.
+   Aucune logique métier ici : variables + classes utilitaires. */
+:root {
+  --fond: #ffffff; --texte: #1a1a1a; --primaire: #0d6efd;
+  --succes: #198754; --alerte: #dc3545; --attente: #fd7e14;
+  --bord: #dee2e6; --pastille: #6c757d;
+  --tactile: 48px; --rayon: 12px; --pad: 16px; --texte-grand: 18px;
+}
+[data-theme="sombre"] {
+  --fond: #121212; --texte: #f5f5f5; --primaire: #6ea8fe;
+  --succes: #75b798; --alerte: #ea868f; --attente: #f0a35e;
+  --bord: #373b3e; --pastille: #adb5bd;
+}
+.zone-tactile { min-height: var(--tactile); min-width: var(--tactile); }
+.bouton-plein { min-height: var(--tactile); border-radius: var(--rayon); }
+.bouton-contour { min-height: var(--tactile); border-radius: var(--rayon); }
+.tuile-produit { min-height: 88px; min-width: var(--tactile); border-radius: var(--rayon); }
+.pastille { min-height: var(--tactile); min-width: var(--tactile); border-radius: 999px; }
+.bandeau { min-height: var(--tactile); }
+.pave-pin button { min-height: 64px; min-width: 64px; font-size: 24px; }

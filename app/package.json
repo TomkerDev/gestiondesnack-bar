@@ -1,0 +1,11 @@
+{
+  "name": "snack-bar-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"tests/*.test.js\" && python tests/test_i1.py && python tests/test_i2.py && python tests/test_i3.py && python tests/test_i4.py && python tests/test_i5.py && python tests/test_i6.py && python tests/test_i7.py && python tests/test_i8.py"
+  }
+}
+
+
