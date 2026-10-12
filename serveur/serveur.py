@@ -139,7 +139,7 @@ def etat_caisse(conn, serveur_id, journee_id):
     """CAI-2 : fond + espèces − remboursements + pourboires + entrées − sorties."""
     k = conn.execute("SELECT * FROM caisses WHERE journee_id=? AND serveur_id=?", (journee_id, serveur_id)).fetchone()
     if not k: return None
-    q = lambda sql, *a: conn.execute(sql, *a).fetchone()["s"]
+    q = lambda sql, *a: conn.execute(sql, a).fetchone()["s"]
     especes = q("""SELECT COALESCE(SUM(r.montant),0) AS s FROM reglements r
                    JOIN commandes c ON c.id=r.commande_id
                    WHERE r.mode='especes' AND r.serveur_id=? AND c.journee_id=?""", serveur_id, journee_id)
@@ -408,14 +408,14 @@ class Gestionnaire(BaseHTTPRequestHandler):
         # --- POST cuisine (CUI-3) --------------------------------------------
         m = re.match(r"^/api/cuisine/bons/([^/]+)/avancer$", chemin)
         if methode == "POST" and m:
-            return self._avancer_bon(conn, m.group(1))
+            return self._avancer_bon(conn, m.group(1), corps)
         # --- POST caisse / journée (CAI-1..5, R2/R5) --------------------------
         if methode == "POST" and chemin == "/api/caisse/sortie":
             return self._sortie_caisse(conn, corps)
         if methode == "POST" and chemin == "/api/caisse/cloture":
             return self._cloturer_caisse(conn, corps)
         if methode == "POST" and chemin == "/api/journee/cloturer":
-            return self._cloturer_journee(conn)
+            return self._cloturer_journee(conn, corps)
         # --- POST stock (STK-4/STK-5, double contrôle) -----------------------
         m = re.match(r"^/api/stock/entrees/([^/]+)/valider$", chemin)
         if methode == "POST" and m:
@@ -630,7 +630,7 @@ class Gestionnaire(BaseHTTPRequestHandler):
         conn.commit()
         return self._json({"ok": True, "commande": commande_vers_ui(conn, cid), "alertes": alertes})
     # --- avancement bon cuisine (CUI-3) ---
-    def _avancer_bon(self, conn, bid):
+    def _avancer_bon(self, conn, bid, corps):
         b = conn.execute("SELECT * FROM bons_cuisine WHERE id=?", (bid,)).fetchone()
         if not b:
             raise ValueError("Bon cuisine introuvable")
@@ -649,8 +649,11 @@ class Gestionnaire(BaseHTTPRequestHandler):
         vise = ordre[courant + 1]
         conn.execute("UPDATE lignes SET statut_cuisine=? WHERE bon_id=? AND statut_cuisine NOT IN ('servi','annule')",
                      (vise, bid))
-        auditer(conn, "cuisine", "bon_avance", b["commande_id"], None,
+        auditer(conn, self._serveur(conn, corps), "bon_avance", b["commande_id"], None,
                 json.dumps({"bon": bid, "vers": vise}, ensure_ascii=False))
+        conn.commit()
+        return self._json({"ok": True, "bon": bid, "statut": vise})
+
     # --- sortie caisse (CAI-3 : en_attente, validee par gerant/proprio) ---
     def _sortie_caisse(self, conn, corps):
         jid = _journee_id(conn)
@@ -667,8 +670,7 @@ class Gestionnaire(BaseHTTPRequestHandler):
                 json.dumps({"sortie": sid, "montant": montant}, ensure_ascii=False))
         conn.commit()
         return self._json({"ok": True, "sortie": sid, "statut": "en_attente"})
-        conn.commit()
-        return self._json({"ok": True, "bon": bid, "statut": vise})
+
     # --- cloture caisse (CAI-4 tolerance + CAI-5 forcage R1) ---
     def _cloturer_caisse(self, conn, corps):
         jid = _journee_id(conn)
@@ -713,3 +715,174 @@ class Gestionnaire(BaseHTTPRequestHandler):
                 json.dumps({"caisse": k["id"], "ecart": ecart}, ensure_ascii=False))
         conn.commit()
         return self._json({"ok": True, "statut": "close", "ecart": ecart})
+
+    # --- cloture journee (CAI-1 : caisses closes ; R5 : definitive) ---
+    def _cloturer_journee(self, conn, corps=None):
+        j = conn.execute("SELECT * FROM journees WHERE statut='ouverte' ORDER BY ouverte_le DESC LIMIT 1").fetchone()
+        if not j:
+            raise ValueError("Aucune journee ouverte a cloturer")
+        ouvertes = conn.execute("SELECT COUNT(*) AS n FROM caisses WHERE journee_id=? AND statut='ouverte'",
+                                (j["id"],)).fetchone()["n"]
+        if ouvertes:
+            raise ValueError("Caisses non closes : %d encore ouverte(s) (CAI-1)" % ouvertes)
+        conn.execute("UPDATE journees SET statut='close', fermee_le=? WHERE id=?", (maintenant(), j["id"]))
+        qui = self._serveur(conn, corps or {})
+        conn.execute("UPDATE journees SET fermee_par=? WHERE id=?", (qui, j["id"]))
+        auditer(conn, qui, "journee_cloturee", None, None,
+                json.dumps({"journee": j["id"]}, ensure_ascii=False))
+        conn.commit()
+        return self._json({"ok": True, "journee": j["id"], "statut": "close"})
+
+    # --- valider entree stock (STK-4 : autre personne, mouvements achat) ---
+    def _valider_entree(self, conn, eid, corps):
+        e = conn.execute("SELECT * FROM entrees_stock WHERE id=?", (eid,)).fetchone()
+        if not e:
+            raise ValueError("Entree stock introuvable")
+        if e["statut"] != "a_valider":
+            raise ValueError("Entree deja %s" % e["statut"])
+        valideur = self._serveur(conn, corps)
+        if valideur == e["saisie_par"]:
+            raise ValueError("Validation par le saisissant interdite (STK-4, separation)")
+        lignes = conn.execute("SELECT * FROM entree_lignes WHERE entree_id=?", (eid,)).fetchall()
+        for l in lignes:
+            conn.execute("INSERT INTO mouvements_stock"
+                         " (id, produit_id, journee_id, quantite, type, entree_id, cree_par)"
+                         " VALUES (?,?,?,?,?,?,?)",
+                         (_uuid(), l["produit_id"], e["journee_id"], l["quantite"], "achat", eid, valideur))
+        conn.execute("UPDATE entrees_stock SET statut='validee', validee_par=?, validee_le=? WHERE id=?",
+                     (valideur, maintenant(), eid))
+        auditer(conn, valideur, "entree_validee", None, None,
+                json.dumps({"entree": eid, "lignes": len(lignes)}, ensure_ascii=False))
+        conn.commit()
+        return self._json({"ok": True, "entree": eid, "statut": "validee"})
+
+    # --- rejeter entree (STK-4 : SANS mouvement inverse, jamais entree en dispo) ---
+    def _rejeter_entree(self, conn, eid, corps):
+        e = conn.execute("SELECT * FROM entrees_stock WHERE id=?", (eid,)).fetchone()
+        if not e:
+            raise ValueError("Entree stock introuvable")
+        if e["statut"] != "a_valider":
+            raise ValueError("Entree deja %s" % e["statut"])
+        motif = str(corps.get("motif") or corps.get("motif_rejet") or "").strip()
+        if not motif:
+            raise ValueError("Motif de rejet obligatoire")
+        conn.execute("UPDATE entrees_stock SET statut='rejetee', motif_rejet=? WHERE id=?", (motif, eid))
+        auditer(conn, self._serveur(conn, corps), "entree_rejetee", None, motif,
+                json.dumps({"entree": eid}, ensure_ascii=False))
+        conn.commit()
+        return self._json({"ok": True, "entree": eid, "statut": "rejetee"})
+
+    # --- inventaire (STK-5 : ecart = comptee - theorique, motif si != 0) ---
+    def _inventaire(self, conn, corps):
+        jid = _journee_id(conn)
+        compteur = self._serveur(conn, corps)
+        items = corps.get("lignes") or corps.get("items") or []
+        if not items:
+            raise ValueError("Inventaire vide")
+        resultats = []
+        for it in items:
+            pid = it.get("produit") or it.get("produit_id") or it.get("id")
+            comptee = it.get("comptee") or it.get("quantite")
+            if not isinstance(comptee, int) or comptee < 0:
+                raise ValueError("Quantite comptee invalide pour %s" % pid)
+            p = conn.execute("SELECT id FROM products WHERE id=? AND est_actif=1", (pid,)).fetchone()
+            if not p:
+                raise ValueError("Produit inconnu ou inactif : %s" % pid)
+            theorique = dispo(conn, pid, jid)
+            ecart = comptee - theorique
+            motif = str(it.get("motif") or corps.get("motif") or "").strip()
+            if ecart != 0 and not motif:
+                raise ValueError("Ecart %d sur %s : motif obligatoire (STK-5)" % (ecart, pid))
+            mid = None
+            if ecart != 0:
+                mid = _uuid()
+                conn.execute("INSERT INTO mouvements_stock"
+                             " (id, produit_id, journee_id, quantite, type, motif, cree_par)"
+                             " VALUES (?,?,?,?,?,?,?)",
+                             (mid, pid, jid, ecart, "correction", motif, compteur))
+            iid = _uuid()
+            conn.execute("INSERT INTO inventaires"
+                         " (id, journee_id, produit_id, quantite_theorique, quantite_comptee,"
+                         " ecart, motif, mouvement_id, compte_par)"
+                         " VALUES (?,?,?,?,?,?,?,?,?)",
+                         (iid, jid, pid, theorique, comptee, ecart, motif or "sans ecart", mid, compteur))
+            resultats.append({"produit": pid, "theorique": theorique, "comptee": comptee, "ecart": ecart})
+        auditer(conn, compteur, "inventaire", None, None,
+                json.dumps({"lignes": len(resultats)}, ensure_ascii=False))
+        conn.commit()
+        return self._json({"ok": True, "inventaire": resultats})
+
+    # --- plafond ardoise (ARD-1 : fixe par gerant/proprio, audit SEC-3) ---
+    def _plafond(self, conn, cid, corps):
+        cl = conn.execute("SELECT * FROM clients WHERE id=?", (cid,)).fetchone()
+        if not cl:
+            raise ValueError("Client introuvable")
+        self._exige_roles(conn, self._serveur(conn, corps), ("gerant", "proprietaire"), "fixer plafond")
+        nouveau = corps.get("plafond")
+        if isinstance(nouveau, bool) or not isinstance(nouveau, int) or nouveau < 0:
+            raise ValueError("Plafond invalide (ARD-1 : entier >= 0)")
+        ancien = cl["plafond"]
+        conn.execute("UPDATE clients SET plafond=? WHERE id=?", (nouveau, cid))
+        auditer(conn, self._serveur(conn, corps), "plafond_modifie", None, None,
+                json.dumps({"client": cid, "ancien": ancien, "nouveau": nouveau}, ensure_ascii=False))
+        conn.commit()
+        return self._json({"ok": True, "client": cid, "plafond": nouveau})
+
+    # --- remboursement ardoise (ARD-4 : encaissement distinct attribue au serveur) ---
+    def _remboursement(self, conn, cid, corps):
+        cl = conn.execute("SELECT * FROM clients WHERE id=? AND est_actif=1", (cid,)).fetchone()
+        if not cl:
+            raise ValueError("Client introuvable")
+        jid = _journee_id(conn)
+        serveur = self._serveur(conn, corps)
+        montant = _montant(corps.get("montant"))
+        mode = corps.get("mode") or "especes"
+        if mode not in ("especes", "mobile"):
+            raise ValueError("Mode de remboursement inconnu")
+        solde = solde_ardoise(conn, cid)
+        if solde <= 0:
+            raise ValueError("Aucun solde du a rembourser (ARD-4)")
+        if montant > solde:
+            raise ValueError("Remboursement %d superieur au solde %d" % (montant, solde))
+        mid = _uuid()
+        conn.execute("INSERT INTO ardoise_mouvements"
+                     " (id, client_id, journee_id, sens, montant, serveur_id)"
+                     " VALUES (?,?,?,?,?,?)",
+                     (mid, cid, jid, "remboursement", montant, serveur))
+        auditer(conn, serveur, "ardoise_remboursee", None, None,
+                json.dumps({"client": cid, "montant": montant, "mode": mode}, ensure_ascii=False))
+        conn.commit()
+        return self._json({"ok": True, "remboursement": mid, "solde": solde - montant})
+
+    # --- changement prix (PRX-1 : trace qui/ancien/nouveau ; R3 : gerant/proprio) ---
+    def _changer_prix(self, conn, pid, corps):
+        p = conn.execute("SELECT * FROM products WHERE id=?", (pid,)).fetchone()
+        if not p:
+            raise ValueError("Produit introuvable")
+        qui = self._serveur(conn, corps)
+        self._exige_roles(conn, qui, ("gerant", "proprietaire"), "changer prix")
+        nouveau = corps.get("prix")
+        if isinstance(nouveau, bool) or not isinstance(nouveau, int) or nouveau < 0:
+            raise ValueError("Prix invalide (PRX-1 : entier >= 0)")
+        ancien = p["prix_vente"]
+        conn.execute("UPDATE products SET prix_vente=? WHERE id=?", (nouveau, pid))
+        conn.execute("INSERT INTO prix_historique (id, produit_id, ancien_prix, nouveau_prix, change_par)"
+                     " VALUES (?,?,?,?,?)", (_uuid(), pid, ancien, nouveau, qui))
+        auditer(conn, qui, "prix_modifie", None, None,
+                json.dumps({"produit": pid, "ancien": ancien, "nouveau": nouveau}, ensure_ascii=False))
+        conn.commit()
+        return self._json({"ok": True, "produit": pid, "prix": nouveau})
+
+
+def lancer(port=8080):
+    initialiser()
+    srv = ThreadingHTTPServer(("127.0.0.1", port), Gestionnaire)
+    print("Snack-bar : http://127.0.0.1:%d (base %s)" % (port, CHEMIN_BASE), flush=True)
+    try:
+        srv.serve_forever()
+    except KeyboardInterrupt:
+        pass
+
+
+if __name__ == "__main__":
+    lancer(int(sys.argv[1]) if len(sys.argv) > 1 else 8080)
