@@ -62,4 +62,15 @@ pkg = (app / "package.json").read_text(encoding="utf-8")
 ok("INT_npm_test_integration", "test_integration.py" in pkg)
 ok("INT_npm_test_api", "node --test" in pkg)
 
+# --- 7. Scopes §3 : garde de routes + navigation filtrée par rôle ---
+droits = lire("lib/droits.js")
+for extrait in ["gardeRoute", "liensPour", "autorise", "/connexion",
+                "/commande", "/commandes", "/cuisine", "/paiement", "/ma-caisse", "/pc", "/pc/stock"]:
+    ok("INT_droits_" + extrait.replace("/", "_"), extrait in droits)
+ok("INT_layout_garde", "gardeRoute" in layout and "/connexion" in layout)
+accueil = lire("routes/+page.svelte")
+ok("INT_accueil_filtre_role", "gardeRoute" in accueil and "Prendre son poste" in accueil)
+connexion = lire("routes/connexion/+page.svelte")
+ok("INT_connexion_redirige_role", "goto" in connexion and "/commande" in connexion and "/pc" in connexion)
+
 print("Integration OK —", n, "tests")

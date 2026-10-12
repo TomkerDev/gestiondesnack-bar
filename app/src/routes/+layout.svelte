@@ -1,16 +1,29 @@
 <!-- I-INT · Layout global : thème, bandeau de connexion (OFF-1, piloté par session
    + événements navigateur online/offline), navigation tactile principale.
-   Hors ligne → le client bascule et se resynchronise au retour du réseau (OFF-3). -->
+   Hors ligne → le client bascule et se resynchronise au retour du réseau (OFF-3).
+   Scopes §3 (module lib/droits.js) : /commande /commandes /cuisine /paiement
+   /ma-caisse (serveur+) ; /pc /pc/stock (gérant/proprio seuls, R3). -->
 <script>
   import "$lib/theme.css";
   import BandeauConnexion from "$lib/components/BandeauConnexion.svelte";
   import Marque from "$lib/components/Marque.svelte";
   import { session, majConnexion, fermerSession } from "$lib/session.js";
+  import { gardeRoute, liensPour } from "$lib/droits.js";
   import { api } from "$lib/api.js";
   import { goto } from "$app/navigation";
+  import { page } from "$app/stores";
   let enLigne = true;
   let moi = { identifiant: "", role: "", appareil: "", debut: "", enLigne: true };
   session.subscribe((v) => (moi = v));
+  $: liens = [...liensPour(moi.role), ["/galerie", "Galerie"]];
+  // Garde de routes : sans session → /connexion ; rôle insuffisant → /connexion.
+  $: if (typeof window !== "undefined" && $page.url) {
+    const chemin = $page.url.pathname;
+    if (chemin !== "/connexion" && chemin !== "/") {
+      const g = gardeRoute(moi.role, chemin);
+      if (!g.ok) goto("/connexion");
+    }
+  }
   async function basculer(v) {
     enLigne = v;
     api.basculerLigne(v);
@@ -22,17 +35,11 @@
     window.addEventListener("online", () => basculer(true));
     window.addEventListener("offline", () => basculer(false));
   }
-  const LIENS = [
-    ["/commande", "Prise de commande"], ["/commandes", "Mes commandes"],
-    ["/cuisine", "Cuisine"], ["/paiement", "Paiement"],
-    ["/ma-caisse", "Ma caisse"], ["/pc", "PC caisse"], ["/pc/stock", "Stock & prix"],
-    ["/galerie", "Galerie"]
-  ];
 </script>
 <svelte:head><meta name="theme-color" content="#c2410c" /></svelte:head>
 <header class="layout-entete">
   <a class="logo" href="/" aria-label="Accueil Snack-bar Braise"><Marque taille={32} /></a>
-  <nav aria-label="Application">{#each LIENS as [href, lib]}<a class="zone-tactile" {href}>{lib}</a>{/each}</nav>
+  <nav aria-label="Application">{#each liens as [href, lib]}<a class="zone-tactile" {href}>{lib}</a>{/each}</nav>
   <span class="qui">
     {#if moi.identifiant}
       {moi.role} · <button type="button" class="quitter" on:click={async () => { fermerSession(); sessionStorage.removeItem("snack.profil"); await goto("/connexion"); }}>Quitter</button>
