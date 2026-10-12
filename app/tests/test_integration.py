@@ -73,4 +73,9 @@ ok("INT_accueil_filtre_role", "gardeRoute" in accueil and "Prendre son poste" in
 connexion = lire("routes/connexion/+page.svelte")
 ok("INT_connexion_redirige_role", "goto" in connexion and "/commande" in connexion and "/pc" in connexion)
 
+# --- 8. Identité propagée : acteur connecté dans chaque acte (fin du défaut Awa) ---
+ok("INT_api_definir_acteur", "definirActeur" in api and "acteur" in api)
+ok("INT_connexion_definit_acteur", "definirActeur" in connexion)
+ok("INT_layout_restaure_acteur", "definirActeur" in layout and "snack.profil" in layout)
+
 print("Integration OK —", n, "tests")

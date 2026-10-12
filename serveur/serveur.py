@@ -439,10 +439,14 @@ class Gestionnaire(BaseHTTPRequestHandler):
 
     # ------------------------------------------------- handlers POST
     def _serveur(self, conn, corps):
-        """Serveur auteur de l'acte (v1 : champ optionnel, défaut Awa)."""
+        """Auteur de l'acte : id propagé par l'app (definirActeur), sinon Awa (v1)."""
         sid = corps.get("serveur") or "u-awa"
         u = conn.execute("SELECT id FROM users WHERE id=? AND est_actif=1", (sid,)).fetchone()
-        return u["id"] if u else "u-awa"
+        if u:
+            return u["id"]
+        if corps.get("serveur"):
+            raise ValueError("Auteur inconnu ou inactif : %s" % sid)
+        return "u-awa"
 
     def _role(self, conn, uid):
         u = conn.execute("SELECT role FROM users WHERE id=?", (uid,)).fetchone()

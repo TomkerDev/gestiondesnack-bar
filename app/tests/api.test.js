@@ -94,3 +94,31 @@ test("INT-7 chaque action du catalogue API a sa classe hors ligne définie", () 
                      "encaissement_mobile", "vente_ardoise"];
   assert.deepEqual(FILE_HORS_LIGNE, attendues);
 });
+
+test("INT-8 definirActeur : l'identité est injectée dans les POST, jamais écrasée", async () => {
+  const appels = [];
+  const c = creerClient({ fetchImpl: async (u, o) => { appels.push([u, JSON.parse(o.body || "{}")]); return rep({}); } });
+  c.definirActeur("u-ibrahima");
+  await c.creerCommande([{ id: 1 }]);
+  assert.equal(appels[0][1].serveur, "u-ibrahima");
+  await c.changerPrix("p-soda", 600); // gérant : le serveur autorise (R3)
+  assert.equal(appels[1][1].serveur, "u-ibrahima");
+  assert.equal(appels[1][1].prix, 600);
+  await c.plafond("c-koffi", 20000);
+  assert.equal(appels[2][1].serveur, "u-ibrahima");
+  c.definirActeur(null); // déconnexion : plus d'injection
+  await c.creerCommande([{ id: 2 }]);
+  assert.equal("serveur" in appels[3][1], false);
+});
+
+test("INT-9 mesCommandes/etatCaisse utilisent l'acteur par défaut", async () => {
+  const urls = [];
+  const c = creerClient({ fetchImpl: async (u) => { urls.push(u); return rep({}); } });
+  c.definirActeur("u-awa");
+  await c.mesCommandes();
+  await c.etatCaisse();
+  assert.ok(urls[0].endsWith("/api/commandes?serveur=u-awa"));
+  assert.ok(urls[1].endsWith("/api/caisse?serveur=u-awa"));
+  await c.mesCommandes("u-moussa"); // filtre explicite prioritaire
+  assert.ok(urls[2].endsWith("/api/commandes?serveur=u-moussa"));
+});

@@ -27,9 +27,23 @@ export const FILE_HORS_LIGNE = ["prise_commande", "modification_commande", "enca
 export function creerClient({ base = "", fetchImpl, horloge, enLigne = true } = {}) {
   const fetcher = fetchImpl ?? ((...a) => globalThis.fetch(...a));
   const now = horloge ?? (() => new Date().toISOString());
-  const etat = { enLigne, file: [], abonnes: [] };
+  const etat = { enLigne, file: [], abonnes: [], acteur: null };
 
   function emitre(e) { for (const ab of etat.abonnes) ab(e); }
+
+  // Identité propagée : l'acteur connecté (id utilisateur seed : u-awa…)
+  // est injecté comme `serveur` dans chaque corps POST qui n'en a pas.
+  // Jamais de défaut silencieux ici : sans acteur, le serveur applique le
+  // sien (u-awa) — les pages branchées appellent definirActeur() à la connexion.
+  function avecActeur(corps) {
+    if (corps === undefined || corps === null) {
+      return etat.acteur ? { serveur: etat.acteur } : corps;
+    }
+    if (typeof corps === "object" && !Array.isArray(corps) && !("serveur" in corps) && etat.acteur) {
+      return { ...corps, serveur: etat.acteur };
+    }
+    return corps;
+  }
 
   async function reseau(chemin, { methode = "GET", corps } = {}) {
     try {
@@ -57,12 +71,13 @@ export function creerClient({ base = "", fetchImpl, horloge, enLigne = true } = 
   }
 
   async function demander(action, chemin, { methode = "GET", corps } = {}) {
+    const corpsActeur = methode === "POST" ? avecActeur(corps) : corps;
     if (etat.enLigne) {
-      const rep = await reseau(chemin, { methode, corps });
-      if (rep.horsLigne) return classer(action, chemin, methode, corps); // bascule → file
+      const rep = await reseau(chemin, { methode, corps: corpsActeur });
+      if (rep.horsLigne) return classer(action, chemin, methode, corpsActeur); // bascule → file
       return rep;
     }
-    return classer(action, chemin, methode, corps);
+    return classer(action, chemin, methode, corpsActeur);
   }
 
 
@@ -83,8 +98,9 @@ export function creerClient({ base = "", fetchImpl, horloge, enLigne = true } = 
   }
 
   return {
-    get etat() { return { enLigne: etat.enLigne, file: [...etat.file] }; },
+    get etat() { return { enLigne: etat.enLigne, file: [...etat.file], acteur: etat.acteur }; },
     basculerLigne(v) { etat.enLigne = v; },
+    definirActeur(id) { etat.acteur = id || null; },
     abonner(fn) { etat.abonnes.push(fn); return () => { etat.abonnes = etat.abonnes.filter((f) => f !== fn); }; },
     resynchroniser,
     demander,
@@ -94,13 +110,13 @@ export function creerClient({ base = "", fetchImpl, horloge, enLigne = true } = 
     creerCommande: (lignes) => demander("prise_commande", "/api/commandes", { methode: "POST", corps: { lignes } }),
     ajouterLignes: (id, lignes) => demander("modification_commande", "/api/commandes/" + id + "/lignes", { methode: "POST", corps: { lignes } }),
     envoyerCuisine: (id) => demander("modification_commande", "/api/commandes/" + id + "/envoyer", { methode: "POST" }),
-    mesCommandes: (serveur) => demander("lecture", "/api/commandes?serveur=" + encodeURIComponent(serveur)),
+    mesCommandes: (serveur) => demander("lecture", "/api/commandes?serveur=" + encodeURIComponent(serveur ?? etat.acteur ?? "")),
     paiement: (id, reglements) => demander(
       reglements.some((r) => r.mode === "mobile") ? "encaissement_mobile" : "encaissement_especes",
       "/api/commandes/" + id + "/paiement", { methode: "POST", corps: { reglements } }),
     bonsCuisine: () => demander("lecture", "/api/cuisine/bons"),
     avancerBon: (id) => demander("modification_commande", "/api/cuisine/bons/" + id + "/avancer", { methode: "POST" }),
-    etatCaisse: (serveur) => demander("lecture", "/api/caisse?serveur=" + encodeURIComponent(serveur)),
+    etatCaisse: (serveur) => demander("lecture", "/api/caisse?serveur=" + encodeURIComponent(serveur ?? etat.acteur ?? "")),
     sortieCaisse: (corps) => demander("encaissement_especes", "/api/caisse/sortie", { methode: "POST", corps }),
     cloturerCaisse: (corps) => demander("encaissement_especes", "/api/caisse/cloture", { methode: "POST", corps }),
     cloturerJournee: (corps) => demander("encaissement_especes", "/api/journee/cloturer", { methode: "POST", corps }),

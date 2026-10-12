@@ -26,6 +26,7 @@
       const u = rep.utilisateur;
       const local = ouvrirSession({ identifiant: code, role: u.role, appareil: "appareil-demo" });
       if (!local.ok) { erreur = local.raison; return; }
+      api.definirActeur(u.id); // propage l'identité (auteur des actes, scopes serveur)
       sessionStorage.setItem("snack.profil", JSON.stringify({ id: u.id, nom: u.nom, role: u.role }));
       await goto(u.role === "serveur" ? "/commande" : u.role === "gerant" ? "/pc" : "/pc/stock");
     } finally {

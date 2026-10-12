@@ -7,7 +7,7 @@
   import "$lib/theme.css";
   import BandeauConnexion from "$lib/components/BandeauConnexion.svelte";
   import Marque from "$lib/components/Marque.svelte";
-  import { session, majConnexion, fermerSession } from "$lib/session.js";
+  import { session, majConnexion, fermerSession, ouvrirSession } from "$lib/session.js";
   import { gardeRoute, liensPour } from "$lib/droits.js";
   import { api } from "$lib/api.js";
   import { goto } from "$app/navigation";
@@ -34,6 +34,10 @@
     basculer(navigator.onLine);
     window.addEventListener("online", () => basculer(true));
     window.addEventListener("offline", () => basculer(false));
+    try { // restaure l'acteur après rechargement (profil persisté à la connexion)
+      const p = JSON.parse(sessionStorage.getItem("snack.profil") || "null");
+      if (p?.id) { api.definirActeur(p.id); ouvrirSession({ identifiant: "0000", role: p.role, appareil: "appareil-demo" }); }
+    } catch { /* stockage indisponible : on reste anonyme */ }
   }
 </script>
 <svelte:head><meta name="theme-color" content="#c2410c" /></svelte:head>
@@ -42,7 +46,7 @@
   <nav aria-label="Application">{#each liens as [href, lib]}<a class="zone-tactile" {href}>{lib}</a>{/each}</nav>
   <span class="qui">
     {#if moi.identifiant}
-      {moi.role} · <button type="button" class="quitter" on:click={async () => { fermerSession(); sessionStorage.removeItem("snack.profil"); await goto("/connexion"); }}>Quitter</button>
+      {moi.role} · <button type="button" class="quitter" on:click={async () => { fermerSession(); api.definirActeur(null); sessionStorage.removeItem("snack.profil"); await goto("/connexion"); }}>Quitter</button>
     {:else}
       <a class="zone-tactile connecter" href="/connexion">Se connecter</a>
     {/if}
