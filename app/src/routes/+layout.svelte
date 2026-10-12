@@ -42,7 +42,7 @@
 </script>
 <svelte:head><meta name="theme-color" content="#c2410c" /></svelte:head>
 <header class="layout-entete">
-  <a class="logo" href="/" aria-label="Accueil Snack-bar Braise"><Marque taille={32} /></a>
+  <a class="logo" href="/" aria-label="Accueil Snack-bar Apis"><Marque taille={32} /></a>
   <nav aria-label="Application">{#each liens as [href, lib]}<a class="zone-tactile" {href}>{lib}</a>{/each}</nav>
   <span class="qui">
     {#if moi.identifiant}

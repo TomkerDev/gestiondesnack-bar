@@ -1,5 +1,5 @@
-/* I1 · Thème « Braise » du snack-bar : sombre + clair, 48 px tactile min, contrastes AA.
-   Marque : braise (orange feu) + feuille (vert attieké) sur fond crème/cacao.
+/* I1 · Thème « Apis » du snack-bar : sombre + clair, 48 px tactile min, contrastes AA.
+   Marque : abeille Apis (orange feu + rayures cacao) sur fond crème/cacao.
    Aucune logique métier ici : variables + classes utilitaires. */
 :root {
   --fond: #faf5ec; --fond-carte: #fffdf8; --texte: #2b1d12; --texte-doux: #6b5847;

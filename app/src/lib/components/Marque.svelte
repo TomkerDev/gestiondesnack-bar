@@ -1,13 +1,16 @@
-<!-- Marque « Braise » : flambeau + nom, réutilisé (accueil, connexion, en-tête). -->
+<!-- Marque « Apis » : abeille stylisée + nom, réutilisée (accueil, connexion, en-tête). -->
 <script>export let taille = 40;</script>
-<span class="marque zone-tactile" aria-label="Snack-bar Braise">
+<span class="marque zone-tactile" aria-label="Snack-bar Apis">
   <svg width={taille} height={taille} viewBox="0 0 48 48" aria-hidden="true">
     <circle cx="24" cy="24" r="22" fill="var(--primaire)" />
-    <path d="M24 8c2 6-4 8-2 14 1.4 4.2 6 5 6 10a8 8 0 1 1-16 0c0-3 2-5 3.5-7C17 21 18 17 20 14c1 2 2 3 2.5 5C24 17 24 12 24 8z"
-          fill="#fff7ed" />
-    <circle cx="24" cy="34" r="3.2" fill="var(--primaire-fonce)" />
+    <ellipse cx="24" cy="26" rx="10" ry="12" fill="#fff7ed" />
+    <path d="M14 22h20M14 30h20" stroke="var(--primaire-fonce)" stroke-width="4" />
+    <path d="M16 16c-4-5-10-4-10 0s5 6 9 3M32 16c4-5 10-4 10 0s-5 6-9 3"
+          fill="rgba(255,255,255,.85)" stroke="var(--primaire-fonce)" stroke-width="1.5" />
+    <circle cx="20" cy="14" r="1.8" fill="#fff7ed" />
+    <circle cx="28" cy="14" r="1.8" fill="#fff7ed" />
   </svg>
-  <span class="nom">Snack-bar <b>Braise</b></span>
+  <span class="nom">Snack-bar <b>Apis</b></span>
 </span>
 <style>
   .marque { display: inline-flex; align-items: center; gap: 10px; }
