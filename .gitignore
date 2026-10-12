@@ -8,6 +8,12 @@ build/
 __pycache__/
 *.py[cod]
 
+# Base SQLite locale (demo/dev — regeneree par graine au lancement)
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+
 # Rust
 core/target/
 **/*.rs.bk
