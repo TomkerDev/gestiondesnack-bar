@@ -1,16 +1,20 @@
-/* I1 · Thème : sombre + clair, 48 px tactile min, contrastes AA.
+/* I1 · Thème « Braise » du snack-bar : sombre + clair, 48 px tactile min, contrastes AA.
+   Marque : braise (orange feu) + feuille (vert attieké) sur fond crème/cacao.
    Aucune logique métier ici : variables + classes utilitaires. */
 :root {
-  --fond: #ffffff; --texte: #1a1a1a; --primaire: #0d6efd;
-  --succes: #198754; --alerte: #dc3545; --attente: #fd7e14;
-  --bord: #dee2e6; --pastille: #6c757d;
+  --fond: #faf5ec; --fond-carte: #fffdf8; --texte: #2b1d12; --texte-doux: #6b5847;
+  --primaire: #c2410c; --primaire-fonce: #9a3412; --primaire-doux: #fde8d7;
+  --succes: #15803d; --alerte: #b91c1c; --attente: #c2410c;
+  --bord: #e5d5c0; --pastille: #78716c;
   --tactile: 48px; --rayon: 12px; --pad: 16px; --texte-grand: 18px;
 }
 [data-theme="sombre"] {
-  --fond: #121212; --texte: #f5f5f5; --primaire: #6ea8fe;
-  --succes: #75b798; --alerte: #ea868f; --attente: #f0a35e;
-  --bord: #373b3e; --pastille: #adb5bd;
+  --fond: #1c1410; --fond-carte: #2a2019; --texte: #f7ede1; --texte-doux: #c9b69f;
+  --primaire: #fb923c; --primaire-fonce: #fdba74; --primaire-doux: #4a2b14;
+  --succes: #4ade80; --alerte: #f87171; --attente: #fb923c;
+  --bord: #4a3a2c; --pastille: #a8a29e;
 }
+body { background: var(--fond); color: var(--texte); }
 .zone-tactile { min-height: var(--tactile); min-width: var(--tactile); }
 .bouton-plein { min-height: var(--tactile); border-radius: var(--rayon); }
 .bouton-contour { min-height: var(--tactile); border-radius: var(--rayon); }
