@@ -237,15 +237,37 @@ def catalogue(conn):
     return out
 
 def bons_cuisine(conn):
-    """I5 : bons envoyes + lignes rattachees."""
+    """I5 : bons envoyes + lignes rattachees, dans la forme attendue par l'ecran
+    (statut/table/lignes/heure/duplicata) — le PC caisse reste la reference."""
     bons = conn.execute("""SELECT * FROM bons_cuisine WHERE statut='envoye' AND EXISTS (
         SELECT 1 FROM lignes WHERE lignes.bon_id = bons_cuisine.id
         AND lignes.statut_cuisine NOT IN ('servi','annule')) ORDER BY n_bon""").fetchall()
     out = []
     for b in bons:
         cu = commande_vers_ui(conn, b["commande_id"])
+        lignes = conn.execute("""SELECT l.*, p.nom FROM lignes l JOIN products p ON p.id=l.produit_id
+                                 WHERE l.bon_id=? AND l.statut_cuisine NOT IN ('servi','annule')
+                                 ORDER BY l.cree_le""", (b["id"],)).fetchall()
+        statuts = {l["statut_cuisine"] for l in lignes}
+        if "en_preparation" in statuts:
+            statut_ui = "en préparation"
+        elif statuts and statuts <= {"pret", "servi"}:
+            statut_ui = "prêt"
+        else:
+            statut_ui = "envoyé"
+        try:
+            heure = datetime.strptime(b["cree_le"], "%Y-%m-%dT%H:%M:%S.%fZ").astimezone().strftime("%H:%M")
+        except (ValueError, TypeError):
+            heure = ""
         out.append({"id": b["id"], "nBon": b["n_bon"], "commandeId": b["commande_id"],
-                    "commande": cu, "creeLe": b["cree_le"]})
+                    "commande": cu, "creeLe": b["cree_le"],
+                    "statut": statut_ui, "table": (cu or {}).get("table") or "comptoir",
+                    "heure": heure, "duplicata": (cu or {}).get("nAddition") is not None,
+                    "lignes": [{"id": l["id"], "nom": l["nom"], "quantite": l["quantite"],
+                                "prix": l["prix_unitaire_fige"],
+                                "net": l["quantite"] * l["prix_unitaire_fige"],
+                                "statutCuisine": STATUT_CUISINE_UI.get(l["statut_cuisine"], l["statut_cuisine"])}
+                               for l in lignes]})
     return out
 
 def entrees(conn):
@@ -382,6 +404,13 @@ class Gestionnaire(BaseHTTPRequestHandler):
         if methode == "GET" and chemin == "/api/commandes":
             srv = (query.get("serveur") or [""])[0]
             return self._json({"ok": True, "commandes": commandes(conn, srv)})
+        if methode == "GET":
+            m = re.match(r"^/api/commandes/([^/]+)$", chemin)
+            if m:
+                cu = commande_vers_ui(conn, m.group(1))
+                if cu is None:
+                    return self._erreur("Commande introuvable", 404)
+                return self._json({"ok": True, "commande": cu})
         if methode == "GET" and chemin == "/api/caisse":
             srv = (query.get("serveur") or [""])[0]
             j = journee_ouverte(conn)

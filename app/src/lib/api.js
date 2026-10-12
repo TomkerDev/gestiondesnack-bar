@@ -111,6 +111,7 @@ export function creerClient({ base = "", fetchImpl, horloge, enLigne = true } = 
     ajouterLignes: (id, lignes) => demander("modification_commande", "/api/commandes/" + id + "/lignes", { methode: "POST", corps: { lignes } }),
     envoyerCuisine: (id) => demander("modification_commande", "/api/commandes/" + id + "/envoyer", { methode: "POST" }),
     mesCommandes: (serveur) => demander("lecture", "/api/commandes?serveur=" + encodeURIComponent(serveur ?? etat.acteur ?? "")),
+    commande: (id) => demander("lecture", "/api/commandes/" + encodeURIComponent(id)),
     paiement: (id, reglements) => demander(
       reglements.some((r) => r.mode === "mobile") ? "encaissement_mobile" : "encaissement_especes",
       "/api/commandes/" + id + "/paiement", { methode: "POST", corps: { reglements } }),

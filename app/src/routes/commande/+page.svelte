@@ -2,6 +2,7 @@
    Téléphone : barre fixe bas (articles, total, Envoyer). Tablette : grille + commande à droite.
    Stock zéro : jamais bloquant côté serveur (alerte gérant côté back). Hors ligne : bandeau. -->
 <script>
+  import { onMount } from "svelte";
   import Bouton from "$lib/components/Bouton.svelte";
   import TuileProduit from "$lib/components/TuileProduit.svelte";
   import LigneCommande from "$lib/components/LigneCommande.svelte";
@@ -20,6 +21,13 @@
   let message = "";
   let envoi = false;
   $: visibles = filtre === "Tout" ? produits : produits.filter((p) => p.categorie === filtre);
+  onMount(() => { charger(); });
+  async function charger() {
+    const r = await api.catalogue(); // PC caisse = référence de données (spec §6)
+    enLigne = api.etat.enLigne;
+    if (r.ok) produits = r.produits;
+    else message = r.raison;
+  }
   function touche(produit) { panier = ajouter(panier, produit); restauration = null; message = ""; }
   function touchePastille(produit) {
     const r = retirer(panier, produit.id);
@@ -33,6 +41,10 @@
     if (panier.lignes.length === 0 || envoi) return;
     envoi = true;
     const r = onEnvoyer ? await onEnvoyer(panier) : await api.creerCommande(panier.lignes);
+    if (r.ok && !r.differe && !onEnvoyer && r.commande?.id) {
+      const k = await api.envoyerCuisine(r.commande.id); // CUI-1 : un envoi = un bon
+      if (!k.ok) { envoi = false; message = k.raison; return; }
+    }
     envoi = false;
     if (r.ok) {
       panier = { lignes: [] };
@@ -40,9 +52,20 @@
       if (!r.differe && typeof goto === "function" && r.commande?.id) goto("/commandes/" + r.commande.id);
     } else message = r.raison;
   }
-  function payer() {
-    if (panier.lignes.length === 0) return;
-    if (onPayer) onPayer(panier); else goto("/paiement");
+  async function payer() {
+    if (panier.lignes.length === 0 || envoi) return;
+    if (onPayer) { onPayer(panier); return; }
+    envoi = true;
+    // CMD-1 (comptoir) : créée, envoyée en cuisine puis payée dans un seul flux
+    const r = await api.creerCommande(panier.lignes);
+    if (r.ok && !r.differe && r.commande?.id) await api.envoyerCuisine(r.commande.id);
+    envoi = false;
+    enLigne = api.etat.enLigne;
+    if (!r.ok) { message = r.raison; return; }
+    if (r.differe || !r.commande?.id) { message = "Envoyé — paiement différé jusqu'au retour du réseau"; return; }
+    panier = { lignes: [] };
+    try { sessionStorage.setItem("snack.aPayer", r.commande.id); } catch { /* stockage local absent */ }
+    goto("/paiement");
   }
 </script>
 <svelte:head><title>Prise de commande</title></svelte:head>

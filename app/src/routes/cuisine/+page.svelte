@@ -2,24 +2,38 @@
    Un appui = avancer le statut. Annulé = rouge + « ANNULÉ » + son. Connexion en haut.
    Hors ligne : message clair, la file n'est pas présentée comme à jour. -->
 <script>
+  import { onMount } from "svelte";
   import BandeauConnexion from "$lib/components/BandeauConnexion.svelte";
   import { avancer, recevoirAnnulation, trier, messageHorsLigne, COLONNES } from "$lib/cuisine.js";
+  import { api } from "$lib/api.js";
   export let bons = [];
   export let enLigne = true;
   export let dernierSync = "—";
-  export let onAvancer = () => {};
+  export let onAvancer = null; // injecté par les tests ; par défaut : appel au PC caisse
   let dernierSignal = "";
+  let message = "";
   $: col = Object.fromEntries(COLONNES.map((c) => [c, trier(bons.filter((b) => b.statut === c))]));
-  function toucheCarte(bon) {
+  onMount(() => { charger(); });
+  async function charger() {
+    const r = await api.bonsCuisine();
+    enLigne = api.etat.enLigne;
+    if (r.ok) { bons = r.bons; dernierSync = new Date().toLocaleTimeString("fr-FR"); message = ""; }
+    else message = r.raison;
+  }
+  async function toucheCarte(bon) {
     const suivant = avancer(bon);
     if (suivant.erreur) return;
     dernierSignal = "";
-    onAvancer(suivant);
+    if (onAvancer) { onAvancer(suivant); return; }
+    const r = await api.avancerBon(suivant.id); // CUI-3 : le PC applique la transition
+    enLigne = api.etat.enLigne;
+    if (!r.ok) message = r.raison;
+    await charger();
   }
   export function signalAnnulation(bon) {
     const b = recevoirAnnulation(bon);
     dernierSignal = b.signal; // l'appelant joue aussi le son
-    onAvancer(b);
+    if (onAvancer) onAvancer(b); else bons = bons.map((x) => x.id === b.id ? b : x);
     return b;
   }
 </script>

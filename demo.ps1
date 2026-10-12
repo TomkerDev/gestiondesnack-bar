@@ -29,9 +29,18 @@ Write-Host "      Build OK." -ForegroundColor Green
 
 # 3. Serveur local (fond, une seule instance)
 Write-Host "[3/4] Demarrage du serveur (port 8080)..." -ForegroundColor Yellow
-$existant = Get-CimInstance Win32_Process -Filter "Name='python.exe'" -ErrorAction SilentlyContinue |
-  Where-Object { $_.CommandLine -like "*serveur*serveur.py*" }
+# NB : sur certaines installs le binaire est python3.13.exe (pas python.exe) :
+# un filtre Win32_Process sur 'python.exe' ne trouverait RIEN et l'ancien serveur
+# garderait le port 8080 en servant du code perime. On filtre donc sur la ligne
+# de commande, tous binaires python confondus.
+$existant = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+  Where-Object { $_.Name -like "python*" -and $_.CommandLine -like "*serveur*serveur.py*" }
 foreach ($p in $existant) { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue }
+# Filet de securite : libere le port si un processus l'occupe encore
+Get-NetTCPConnection -LocalPort 8080 -State Listen -ErrorAction SilentlyContinue |
+  Select-Object -ExpandProperty OwningProcess -Unique |
+  ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }
+Start-Sleep -Milliseconds 400
 Start-Process python -ArgumentList "`"$Racine/serveur/serveur.py`"","8080" `
   -WorkingDirectory $Racine -WindowStyle Minimized
 for ($i = 0; $i -lt 50; $i++) {
