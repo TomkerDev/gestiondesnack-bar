@@ -1,24 +1,120 @@
-/* I1 · Thème « Apis » du snack-bar : sombre + clair, 48 px tactile min, contrastes AA.
-   Marque : abeille Apis (orange feu + rayures cacao) sur fond crème/cacao.
-   Aucune logique métier ici : variables + classes utilitaires. */
-:root {
-  --fond: #faf5ec; --fond-carte: #fffdf8; --texte: #2b1d12; --texte-doux: #6b5847;
-  --primaire: #c2410c; --primaire-fonce: #9a3412; --primaire-doux: #fde8d7;
-  --succes: #15803d; --alerte: #b91c1c; --attente: #c2410c;
-  --bord: #e5d5c0; --pastille: #78716c;
-  --tactile: 48px; --rayon: 12px; --pad: 16px; --texte-grand: 18px;
-}
+/* I1 · Jetons de design « Snack-bar Apis » — orange chaud sur fond sombre.
+   Thème SOMBRE par défaut (:root), thème CLAIR via [data-theme="clair"].
+   Fichier des SEULES variables de couleur/typographie : aucun composant ne
+   redéfinit une couleur. Les anciens noms restent disponibles en alias pour
+   ne pas casser les écrans ni les tests statiques I1. */
+
+:root,
 [data-theme="sombre"] {
-  --fond: #1c1410; --fond-carte: #2a2019; --texte: #f7ede1; --texte-doux: #c9b69f;
-  --primaire: #fb923c; --primaire-fonce: #fdba74; --primaire-doux: #4a2b14;
-  --succes: #4ade80; --alerte: #f87171; --attente: #fb923c;
-  --bord: #4a3a2c; --pastille: #a8a29e;
+  /* --- surfaces --- */
+  --fond: #14110f;
+  --surface: #1e1a17;
+  --surface-haute: #27221e;
+  --bordure: #3a332d;
+
+  /* --- texte --- */
+  --texte: #f6f1ea;
+  --texte-secondaire: #a89f94;
+
+  /* --- accent et états --- */
+  --accent: #f26b21;
+  --accent-fonce: #d95a15;
+  --accent-doux: color-mix(in srgb, var(--accent) 16%, transparent);
+  --sur-accent: #1a0e06;      /* texte posé sur fond accent (contraste 6,2:1) */
+  --succes: #34c77b;
+  --alerte: #f5b73b;
+  --danger: #ef5b5b;
+  --neutre: #a89f94;
+
+  /* --- effets : en sombre, la bordure porte la profondeur (pas d'ombre) --- */
+  --ombre: none;
+
+  /* --- alias historiques (tests I1 + écrans existants) --- */
+  --fond-carte: var(--surface);
+  --texte-doux: var(--texte-secondaire);
+  --primaire: var(--accent);
+  --primaire-fonce: var(--accent-fonce);
+  --primaire-doux: var(--accent-doux);
+  --bord: var(--bordure);
+  --pastille: var(--neutre);
+  --attente: var(--alerte);
 }
-body { background: var(--fond); color: var(--texte); }
-.zone-tactile { min-height: var(--tactile); min-width: var(--tactile); }
-.bouton-plein { min-height: var(--tactile); border-radius: var(--rayon); }
-.bouton-contour { min-height: var(--tactile); border-radius: var(--rayon); }
-.tuile-produit { min-height: 88px; min-width: var(--tactile); border-radius: var(--rayon); }
-.pastille { min-height: var(--tactile); min-width: var(--tactile); border-radius: 999px; }
-.bandeau { min-height: var(--tactile); }
-.pave-pin button { min-height: 64px; min-width: 64px; font-size: 24px; }
+
+[data-theme="clair"] {
+  --fond: #faf6f1;
+  --surface: #ffffff;
+  --surface-haute: #f1eae2;
+  --bordure: #e3d9ce;
+
+  --texte: #1f1a16;
+  --texte-secondaire: #6b6259;
+
+  --accent: #c2410c;
+  --accent-fonce: #9a3412;
+  --accent-doux: color-mix(in srgb, var(--accent) 12%, transparent);
+  --sur-accent: #ffffff;      /* texte posé sur fond accent (contraste 5,2:1) */
+  --succes: #15803d;
+  --alerte: #b45309;
+  --danger: #b91c1c;
+  --neutre: #6b6259;
+
+  /* --- effets : en clair, ombre légère + bordure discrète --- */
+  --ombre: 0 1px 2px rgb(31 26 22 / 6%), 0 4px 12px rgb(31 26 22 / 8%);
+}
+
+/* --- rayons : champ / bouton / carte et tuile / pastille --- */
+:root {
+  --rayon-champ: 10px;
+  --rayon-bouton: 14px;
+  --rayon-carte: 16px;
+  --rayon-pastille: 999px;
+  /* alias historiques */
+  --rayon: var(--rayon-bouton);
+  --pad: 16px;
+}
+
+/* --- espacement sur base 4 px --- */
+:root {
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+}
+
+/* --- typographie : Inter Variable embarquée (voir base.css), échelle 6 paliers --- */
+:root {
+  --t-xs: 12px;
+  --t-sm: 13px;
+  --t-base: 15px;
+  --t-md: 17px;
+  --t-lg: 22px;
+  --t-xl: 28px;
+  --texte-grand: var(--t-md);   /* alias historique */
+}
+
+/* --- cibles tactiles (test I1 impose >= 48 px) --- */
+:root {
+  --tactile: 48px;
+  --h-champ: 48px;
+  --h-bouton: 48px;
+  --h-cle-pin: 64px;           /* >= 56 px exigé pour le pavé PIN */
+  --h-tuile: 76px;
+}
+
+/* --- mouvement : 120–180 ms, respect de la préférence système --- */
+:root {
+  --dur: 120ms;
+  --dur-long: 180ms;
+  --ease: cubic-bezier(0.2, 0, 0.1, 1);
+  --echelle-active: 0.98;
+}
+
+/* --- focus : anneau 2 px accent avec décalage (accessibilité) --- */
+:root {
+  --focus-largeur: 2px;
+  --focus-decalage: 2px;
+}
+
