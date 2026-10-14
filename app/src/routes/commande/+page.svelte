@@ -88,3 +88,104 @@
     <Bouton libelle="Payer" variante="contour" desactive={panier.lignes.length === 0} on:click={payer} />
   </aside>
 </div>
+
+<style>
+  /* I2 · Mise en page tactile : catalogue à gauche, commande à droite sur écran
+     large ; barre fixe en bas sur téléphone. Aucune couleur en dur. */
+  nav[aria-label="Catégories"] {
+    display: flex;
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-4);
+    overflow-x: auto;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--fond);
+    border-bottom: var(--bordure-large) solid var(--bordure);
+  }
+
+  nav[aria-label="Catégories"] button {
+    min-height: var(--tactile);
+    padding: 0 var(--sp-4);
+    border: var(--bordure-large) solid var(--bordure);
+    border-radius: var(--rayon-pastille);
+    background: var(--surface);
+    color: var(--texte-secondaire);
+    font-size: var(--t-sm);
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background var(--dur) var(--ease), color var(--dur) var(--ease),
+                border-color var(--dur) var(--ease);
+  }
+  nav[aria-label="Catégories"] button[aria-pressed="true"] {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--sur-accent);
+  }
+
+  .conteneur {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--sp-4);
+    align-items: start;
+  }
+
+  .conteneur section {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: var(--sp-3);
+  }
+
+  /* colonne commande : carte collante sur écran large */
+  .conteneur aside {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+    padding: var(--sp-4);
+    background: var(--surface);
+    border: var(--bordure-large) solid var(--bordure);
+    border-radius: var(--rayon-carte);
+    box-shadow: var(--ombre);
+  }
+
+  .conteneur aside ul {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    padding: 0;
+    margin: 0;
+    list-style: none;
+    max-height: 40vh;
+    overflow-y: auto;
+  }
+
+  /* total : montants alignés, séparateur visible */
+  .conteneur aside p {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--sp-2);
+    margin: 0;
+    padding-top: var(--sp-2);
+    border-top: var(--bordure-large) solid var(--bordure);
+    font-size: var(--t-md);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* message d'état : zone dédiée, jamais une simple ligne perdue */
+  .conteneur aside p[role="status"] {
+    display: block;
+    padding: var(--sp-2) var(--sp-3);
+    border: var(--bordure-large) solid var(--bordure);
+    border-radius: var(--rayon-bouton);
+    background: var(--surface-haute);
+    font-size: var(--t-sm);
+  }
+
+  /* téléphone : la barre d'actions est fixée en bas, sous le pouce */
+  @media (min-width: 901px) {
+    .conteneur { grid-template-columns: 1fr 340px; }
+    .conteneur aside { position: sticky; top: calc(var(--sp-4) + 56px); }
+  }
+</style>

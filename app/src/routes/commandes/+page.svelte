@@ -19,12 +19,14 @@
 <svelte:head><title>Mes commandes</title></svelte:head>
 <BandeauConnexion {enLigne} />
 <h1>Mes commandes</h1>
-<Bouton libelle="Nouvelle commande" on:click={() => onNouvelle()} />
+<div class="barre-action">
+  <Bouton libelle="Nouvelle commande" large on:click={() => onNouvelle()} />
+</div>
 {#if commandes.length === 0}
-  <p>Aucune commande ouverte</p>
+  <p class="etat-vide">Aucune commande ouverte</p>
 {/if}
 {#each Object.entries(groupes) as [nomGroupe, liste]}
-  <section aria-label={nomGroupe}>
+  <section class="groupe" aria-label={nomGroupe}>
     <h2>{nomGroupe}</h2>
     <ul>
       {#each liste as c}
@@ -38,3 +40,60 @@
     </ul>
   </section>
 {/each}
+
+<style>
+  /* I3 · Liste : groupes par table, une carte par commande, pastille de statut. */
+  .barre-action { display: flex; }
+
+  .etat-vide {
+    padding: var(--sp-8) var(--sp-4);
+    text-align: center;
+    color: var(--texte-secondaire);
+    border: 1px dashed var(--bordure);
+    border-radius: var(--rayon-carte);
+  }
+
+  .groupe {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+  }
+
+  .groupe h2 {
+    font-size: var(--t-md);
+    color: var(--texte-secondaire);
+    text-transform: capitalize;
+  }
+
+  .groupe ul {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    padding: 0;
+    margin: 0;
+    list-style: none;
+  }
+
+  .groupe li {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-2);
+    background: var(--surface);
+    border: var(--bordure-large) solid var(--bordure);
+    border-radius: var(--rayon-carte);
+    box-shadow: var(--ombre);
+  }
+
+  .groupe li button {
+    flex: 1;
+    min-height: var(--tactile);
+    padding: var(--sp-2) var(--sp-3);
+    text-align: left;
+    border-radius: var(--rayon-bouton);
+    font-size: var(--t-base);
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+  }
+  .groupe li button:hover { background: var(--surface-haute); }
+</style>

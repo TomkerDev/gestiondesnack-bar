@@ -195,8 +195,6 @@
     border-radius: var(--rayon-carte);
     box-shadow: var(--ombre);
   }
-  .gal-bloc--large { padding: var(--sp-2); }
-
   .gal-range { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; }
   .gal-range--marque { gap: var(--sp-6); }
   .gal-colonne { display: flex; flex-direction: column; gap: var(--sp-3); }
